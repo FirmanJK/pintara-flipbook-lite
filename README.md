@@ -1,7 +1,7 @@
 # Pintara Flipbook Reader Lite (PWA)
 
 ## Deskripsi
-Aplikasi web ini mereplikasi pengalaman membaca flipbook Pintara dalam versi sederhana. Dibuat sebagai Progressive Web App (PWA) yang dapat diinstal di perangkat mobile dan berfungsi secara offline untuk konten yang sudah diunduh.
+Aplikasi web ini mereplikasi pengalaman membaca flipbook Pintara dalam versi sederhana. Dibuat sebagai Progressive Web App (PWA) yang dapat berfungsi secara offline untuk konten yang sudah diunduh.
 
 ## Fitur
 * **Aplikasi PWA**    : Dapat diinstal di layar utama perangkat Android.
