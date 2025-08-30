@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pintara Flipbook Reader Lite</title>
+    <!-- Manifest untuk PWA -->
+    <!-- <link rel="manifest" href="/manifest.json"> -->
+    <!-- Icon untuk perangkat mobile -->
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/007bff/ffffff?text=PFR">
+    <meta name="theme-color" content="#007bff">
+    <style>
+        /* Mengatur font dasar dan reset margin/padding */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #343a40;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Container utama aplikasi */
+        #app {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Header aplikasi */
+        .app-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .app-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        /* Tampilan halaman utama (grid buku) */
+        #home-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 25px;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Card buku */
+        .book-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding-bottom: 15px;
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .book-card img {
+            width: 100%;
+            height: 200px; /* Tinggi thumbnail tetap */
+            object-fit: cover;
+            border-bottom: 1px solid #eee;
+        }
+
+        .book-card h3 {
+            margin: 15px 10px 0;
+            font-size: 1.1em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        /* Tampilan viewer buku */
+        #book-view {
+            display: none; /* Default tersembunyi */
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            min-height: 60vh; /* Minimal tinggi agar tidak terlalu pendek */
+            justify-content: center;
+        }
+
+        .book-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            gap: 10px; /* Jarak antar tombol */
+        }
+
+        .book-viewer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+            flex-wrap: wrap; /* Agar responsif pada layar kecil */
+        }
+
+        .book-viewer-header h2 {
+            margin: 0;
+            font-size: 1.8em;
+            color: #007bff;
+        }
+
+        .book-viewer-header .back-button {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+
+        .book-viewer-header .back-button:hover {
+            background-color: #5a6268;
+        }
+
+        .page-image-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Ukuran maksimal gambar */
+            aspect-ratio: 3 / 4; /* Rasio aspek gambar buku (misal: portrait) */
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .page-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Memastikan gambar pas di dalam container */
+            display: block;
+            transition: transform 0.4s ease-out, opacity 0.4s ease-out; /* Transisi untuk page-turn */
+        }
+
+        /* Efek transisi halaman */
+        .page-image.prev {
+            transform: translateX(-100%);
+            opacity: 0;
+            position: absolute;
+        }
+        .page-image.next {
+            transform: translateX(100%);
+            opacity: 0;
+            position: absolute;
+        }
+        .page-image.current {
+            transform: translateX(0);
+            opacity: 1;
+            position: relative;
+        }
+
+
+        .page-counter {
+            font-size: 1.1em;
+            color: #555;
+            flex-grow: 1; /* Mengambil ruang tersisa */
+            text-align: center;
+        }
+
+        .action-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            min-width: 100px; /* Lebar minimum tombol */
+        }
+
+        .action-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .action-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Indikator mode offline */
+        .offline-badge {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            margin-left: 15px;
+            display: none; /* Default tersembunyi */
+        }
+
+        .offline-badge.visible {
+            display: inline-block;
+        }
+
+        /* Fallback pesan saat halaman tidak tersedia offline */
+        .fallback-message {
+            text-align: center;
+            color: #6c757d;
+            font-size: 1.2em;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        /* Responsif untuk layar kecil */
+        @media (max-width: 768px) {
+            #app {
+                padding: 15px;
+            }
+
+            .app-header h1 {
+                font-size: 2em;
+            }
+
+            #home-view {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .book-card img {
+                height: 150px;
+            }
+
+            .book-card h3 {
+                font-size: 1em;
+            }
+
+            .book-viewer-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .book-viewer-header h2 {
+                font-size: 1.5em;
+            }
+
+            .offline-badge {
+                margin-top: 10px;
+                margin-left: 0;
+            }
+
+            .book-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+            }
+
+            .action-button {
+                min-width: 120px;
+                width: 45%; /* Ambil hampir setengah lebar */
+            }
+
+            .page-counter {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <h1>Pintara Flipbook Lite</h1>
+        </header>
+
+        <!-- Tampilan Home (Grid Buku) -->
+        <div id="home-view">
+            <!-- Buku akan dirender di sini oleh JavaScript -->
+        </div>
+
+        <!-- Tampilan Viewer Buku -->
+        <div id="book-view">
+            <div class="book-viewer-header">
+                <button class="back-button" id="back-to-home">← Kembali</button>
+                <h2 id="book-title-viewer"></h2>
+                <span id="offline-badge" class="offline-badge">Offline Mode</span>
+            </div>
+            <div class="page-image-container">
+                <img id="page-image" class="page-image current" alt="Halaman Buku">
+                <div id="fallback-message" class="fallback-message" style="display:none;">
+                    Halaman belum diunduh. Coba online untuk melihatnya.
+                </div>
+            </div>
+            <div class="book-controls">
+                <button id="prev-page-btn" class="action-button" disabled>Sebelumnya</button>
+                <span id="page-counter" class="page-counter">Halaman 1/1</span>
+                <button id="next-page-btn" class="action-button">Berikutnya</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data buku (menggantikan books.json)
+        // Gunakan placeholder.co untuk gambar sementara
+        const books = [
+            {
+                "id": "buku-1",
+                "title": "Petualangan Kiko",
+                "thumbnail": "https://placehold.co/300x400/007bff/ffffff?text=Kiko+Thumb",
+                "pages": [
+                    {"page":1,"image":"https://placehold.co/600x800/ff0000/ffffff?text=Kiko+Hlm+1"},
+                    {"page":2,"image":"https://placehold.co/600x800/00ff00/ffffff?text=Kiko+Hlm+2"},
+                    {"page":3,"image":"https://placehold.co/600x800/0000ff/ffffff?text=Kiko+Hlm+3"},
+                    {"page":4,"image":"https://placehold.co/600x800/ffff00/000000?text=Kiko+Hlm+4"}
+                ]
+            },
+            {
+                "id": "buku-2",
+                "title": "Misteri Hutan Ajaib",
+                "thumbnail": "https://placehold.co/300x400/28a745/ffffff?text=Hutan+Thumb",
+                "pages": [
+                    {"page":1,"image":"https://placehold.co/600x800/800080/ffffff?text=Hutan+Hlm+1"},
+                    {"page":2,"image":"https://placehold.co/600x800/ffa500/ffffff?text=Hutan+Hlm+2"},
+                    {"page":3,"image":"https://placehold.co/600x800/00ffff/000000?text=Hutan+Hlm+3"},
+                    {"page":4,"image":"https://placehold.co/600x800/ffc0cb/000000?text=Hutan+Hlm+4"}
+                ]
+            }
+        ];
+
+        // Mendapatkan referensi elemen DOM
+        const homeView = document.getElementById('home-view');
+        const bookView = document.getElementById('book-view');
+        const bookTitleViewer = document.getElementById('book-title-viewer');
+        const pageImage = document.getElementById('page-image');
+        const prevPageBtn = document.getElementById('prev-page-btn');
+        const nextPageBtn = document.getElementById('next-page-btn');
+        const pageCounter = document.getElementById('page-counter');
+        const offlineBadge = document.getElementById('offline-badge');
+        const backToHomeBtn = document.getElementById('back-to-home');
+        const fallbackMessage = document.getElementById('fallback-message');
+
+        // Variabel state aplikasi
+        let currentBook = null;
+        let currentPageIndex = 0; // Index berbasis 0
+
+        /**
+         * Fungsi untuk menavigasi antar rute.
+         * @param {string} path - Jalur URL yang akan dinavigasi (misal: '/home', '/book/buku-1').
+         */
+        function navigateTo(path) {
+            history.pushState(null, '', path);
+            renderContent(path);
+        }
+
+        /**
+         * Fungsi untuk merender konten berdasarkan jalur URL.
+         * @param {string} path - Jalur URL saat ini.
+         */
+        function renderContent(path) {
+            homeView.style.display = 'none';
+            bookView.style.display = 'none';
+
+            if (path === '/' || path === '/home') {
+                homeView.style.display = 'grid';
+                renderHomeView();
+            } else if (path.startsWith('/book/')) {
+                bookView.style.display = 'flex';
+                const bookId = path.split('/')[2];
+                loadBookViewer(bookId);
+            }
+            updateOfflineStatus(); // Perbarui status offline setiap kali rute berubah
+        }
+
+        /**
+         * Fungsi untuk merender tampilan halaman utama dengan daftar buku.
+         */
+        function renderHomeView() {
+            homeView.innerHTML = ''; // Bersihkan konten sebelumnya
+            books.forEach(book => {
+                const bookCard = document.createElement('div');
+                bookCard.className = 'book-card';
+                bookCard.innerHTML = `
+                    <img src="${book.thumbnail}" alt="${book.title} Thumbnail" onerror="this.onerror=null;this.src='https://placehold.co/300x400/cccccc/000000?text=No+Thumb';">
+                    <h3>${book.title}</h3>
+                `;
+                bookCard.addEventListener('click', () => navigateTo(`/book/${book.id}`));
+                homeView.appendChild(bookCard);
+            });
+        }
+
+        /**
+         * Fungsi untuk memuat dan menampilkan viewer buku.
+         * @param {string} bookId - ID buku yang akan dimuat.
+         */
+        function loadBookViewer(bookId) {
+            currentBook = books.find(b => b.id === bookId);
+            if (!currentBook) {
+                bookTitleViewer.textContent = 'Buku Tidak Ditemukan';
+                pageImage.src = 'https://placehold.co/600x800/dc3545/ffffff?text=Buku+Tidak+Ada';
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+                pageCounter.textContent = 'Halaman 0/0';
+                fallbackMessage.style.display = 'block';
+                return;
+            }
+
+            bookTitleViewer.textContent = currentBook.title;
+            // Coba ambil halaman dari URL jika ada, jika tidak, mulai dari halaman 1
+            const urlParams = new URLSearchParams(window.location.search);
+            const pageParam = parseInt(urlParams.get('page')) || 1;
+            currentPageIndex = Math.max(0, Math.min(pageParam - 1, currentBook.pages.length - 1));
+
+            renderBookPage(0); // Render halaman pertama (index 0) secara langsung
+        }
+
+        /**
+         * Fungsi untuk merender halaman buku tertentu.
+         * @param {number} direction - Arah transisi (0: tidak ada, -1: prev, 1: next).
+         */
+        async function renderBookPage(direction = 0) {
+            const pageData = currentBook.pages[currentPageIndex];
+            if (!pageData) {
+                pageImage.src = 'https://placehold.co/600x800/dc3545/ffffff?text=Halaman+Tidak+Ada';
+                fallbackMessage.style.display = 'block';
+                return;
+            }
+
+            // Tambahkan kelas transisi sebelum mengubah src
+            if (direction === -1) {
+                pageImage.classList.add('next'); // Jika mundur, halaman saat ini geser ke kanan
+            } else if (direction === 1) {
+                pageImage.classList.add('prev'); // Jika maju, halaman saat ini geser ke kiri
+            }
+
+            fallbackMessage.style.display = 'none';
+
+            // Pre-cache halaman berikutnya secara opsional
+            if (currentPageIndex + 1 < currentBook.pages.length && navigator.onLine) {
+                const nextPageUrl = currentBook.pages[currentPageIndex + 1].image;
+                cachePageImage(nextPageUrl);
+            }
+
+            // Ganti gambar setelah transisi
+            // Gunakan event load gambar untuk memastikan transisi visual yang halus
+            const tempImage = new Image();
+            tempImage.src = pageData.image;
+
+            tempImage.onload = () => {
+                // Hapus kelas transisi setelah gambar baru dimuat dan siap ditampilkan
+                pageImage.classList.remove('prev', 'next');
+                pageImage.src = pageData.image; // Ganti src setelah transisi selesai
+                pageImage.classList.add('current');
+            };
+
+            tempImage.onerror = () => {
+                // Jika gambar gagal dimuat (misal: offline dan tidak ada di cache), tampilkan fallback
+                pageImage.src = 'https://placehold.co/600x800/cccccc/333333?text=Gambar+Tidak+Tersedia'; // Placeholder generic
+                fallbackMessage.style.display = 'block';
+                // Coba ambil dari cache secara manual jika service worker gagal (ini redundant jika SW berfungsi)
+                caches.open('runtime-cache').then(cache => {
+                    return cache.match(pageData.image).then(response => {
+                        if (response) {
+                            pageImage.src = response.url; // Gunakan URL dari cache
+                            fallbackMessage.style.display = 'none';
+                        }
+                    });
+                });
+            };
+
+            pageCounter.textContent = `Halaman ${currentPageIndex + 1}/${currentBook.pages.length}`;
+            updateNavigationButtons();
+            updateOfflineStatus(); // Perbarui status offline
+        }
+
+        /**
+         * Fungsi untuk memperbarui status tombol navigasi (Sebelumnya/Berikutnya).
+         */
+        function updateNavigationButtons() {
+            prevPageBtn.disabled = currentPageIndex === 0;
+            nextPageBtn.disabled = currentPageIndex === currentBook.pages.length - 1;
+        }
+
+        /**
+         * Fungsi untuk memperbarui indikator mode offline.
+         */
+        function updateOfflineStatus() {
+            if (!navigator.onLine) {
+                offlineBadge.classList.add('visible');
+            } else {
+                offlineBadge.classList.remove('visible');
+            }
+        }
+
+        /**
+         * Fungsi untuk melakukan caching gambar secara manual.
+         * Berguna untuk prefetch halaman berikutnya.
+         * @param {string} url - URL gambar yang akan di-cache.
+         */
+        async function cachePageImage(url) {
+            if ('caches' in window) {
+                try {
+                    const cache = await caches.open('runtime-cache');
+                    // Cek apakah sudah ada di cache untuk menghindari fetching ulang
+                    const cachedResponse = await cache.match(url);
+                    if (!cachedResponse) {
+                        await cache.add(url);
+                        console.log(`Gambar ${url} berhasil di-cache.`);
+                    }
+                } catch (error) {
+                    console.error(`Gagal meng-cache gambar ${url}:`, error);
+                }
+            }
+        }
+
+        // Event Listeners
+        prevPageBtn.addEventListener('click', () => {
+            if (currentBook && currentPageIndex > 0) {
+                currentPageIndex--;
+                // Update URL tanpa reload
+                const newPath = `/book/${currentBook.id}?page=${currentPageIndex + 1}`;
+                history.replaceState(null, '', newPath);
+                renderBookPage(-1); // Arah mundur
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            if (currentBook && currentPageIndex < currentBook.pages.length - 1) {
+                currentPageIndex++;
+                // Update URL tanpa reload
+                const newPath = `/book/${currentBook.id}?page=${currentPageIndex + 1}`;
+                history.replaceState(null, '', newPath);
+                renderBookPage(1); // Arah maju
+            }
+        });
+
+        backToHomeBtn.addEventListener('click', () => navigateTo('/home'));
+
+        // Menangani navigasi browser (tombol back/forward)
+        window.addEventListener('popstate', () => {
+            renderContent(window.location.pathname + window.location.search);
+        });
+
+        // Deteksi online/offline
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+
+        // Inisialisasi aplikasi saat DOM selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            renderContent(window.location.pathname + window.location.search);
+        });
+
+        // PWA: Registrasi Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Gunakan path relatif langsung untuk pendaftaran Service Worker
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker terdaftar dengan scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Pendaftaran Service Worker gagal:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Manifest file (diletakkan di sini untuk contoh self-contained) -->
+    <script type="application/json" id="manifest-json">
+        {
+            "name": "Pintara Flipbook Lite",
+            "short_name": "PintaraLite",
+            "description": "Pembaca flipbook sederhana yang bisa diinstal dan offline.",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#f8f9fa",
+            "theme_color": "#007bff",
+            "icons": [
+                {
+                    "src": "https://placehold.co/192x192/007bff/ffffff?text=PFR",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                },
+                {
+                    "src": "https://placehold.co/512x512/007bff/ffffff?text=PFR",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        }
+    </script>
+    <script>
+        // Inisialisasi manifest
+        const manifestElement = document.createElement('link');
+        manifestElement.rel = 'manifest';
+        manifestElement.href = 'data:application/json;base64,' + btoa(document.getElementById('manifest-json').textContent);
+        document.head.appendChild(manifestElement);
+    </script>
+</body>
+</html>
